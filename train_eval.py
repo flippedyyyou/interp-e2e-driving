@@ -1,3 +1,5 @@
+#!/usr/bin/python3.6
+#-*-coding:utf-8 -*-
 # Copyright (c) 2020: Jianyu Chen (jianyuchen@berkeley.edu).
 #
 # This work is licensed under the terms of the MIT license.
@@ -84,31 +86,31 @@ def load_carla_env(
   max_time_episode=500,
   max_waypt=12,
   obs_range=32,
-  lidar_bin=0.5,
+  lidar_bin=0.25,
   d_behind=12,
   out_lane_thres=2.0,
   desired_speed=8,
   max_ego_spawn_times=200,
   display_route=True,
   pixor_size=64,
-  pixor=False,
+  pixor=True,
   obs_channels=None,
   action_repeat=1):
   """Loads train and eval environments."""
   env_params = {
-    'number_of_vehicles': number_of_vehicles,
-    'number_of_walkers': number_of_walkers,
+    'number_of_vehicles': number_of_vehicles, #车的数量
+    'number_of_walkers': number_of_walkers, #人的数量
     'display_size': display_size,  # screen size of bird-eye render
     'max_past_step': max_past_step,  # the number of past steps to draw
-    'dt': dt,  # time interval between two frames
-    'discrete': discrete,  # whether to use discrete control space
-    'discrete_acc': discrete_acc,  # discrete value of accelerations
-    'discrete_steer': discrete_steer,  # discrete value of steering angles
-    'continuous_accel_range': continuous_accel_range,  # continuous acceleration range
-    'continuous_steer_range': continuous_steer_range,  # continuous steering angle range
+    'dt': dt,  # 两帧之间的时间
+    'discrete': discrete,  # 控制空间是否是连续的
+    'discrete_acc': discrete_acc,  # 加速度离散范围
+    'discrete_steer': discrete_steer,  # 转角离散范围
+    'continuous_accel_range': continuous_accel_range,  # 连续加速度范围
+    'continuous_steer_range': continuous_steer_range,  # 连续转角范围
     'ego_vehicle_filter': ego_vehicle_filter,  # filter for defining ego vehicle
     'port': port,  # connection port
-    'town': town,  # which town to simulate
+    'town': town,  # 地图名称
     'task_mode': task_mode,  # mode of the task, [random, roundabout (only for Town03)]
     'max_time_episode': max_time_episode,  # maximum timesteps per episode
     'max_waypt': max_waypt,  # maximum number of waypoints
@@ -301,11 +303,11 @@ class Preprocessing_Layer(tf.keras.layers.Layer):
 @gin.configurable
 def train_eval(
     root_dir,
-    experiment_name,  # experiment name
-    env_name='carla-v0',
+    experiment_name,  # 存放输出的文件夹名
+    env_name='carla-v0',# 输出文件夹的上层文件夹
     agent_name='sac',  # agent's name
     num_iterations=int(1e7),
-    actor_fc_layers=(256, 256),
+    actor_fc_layers=(256, 256),# 动作全连接层规模
     critic_obs_fc_layers=None,
     critic_action_fc_layers=None,
     critic_joint_fc_layers=(256, 256),
@@ -353,7 +355,7 @@ def train_eval(
     train_checkpoint_interval=10000,
     policy_checkpoint_interval=5000,
     rb_checkpoint_interval=50000,
-    log_interval=1000,
+    log_interval=1000, #  输出平均回报
     summary_interval=1000,
     summaries_flush_secs=10,
     debug_summaries=False,
@@ -362,6 +364,7 @@ def train_eval(
     gpu_memory_limit=None,  # GPU memory limit
     action_repeat=1):  # Name of single observation channel, ['camera', 'lidar', 'birdeye']
   # Setup GPU
+  # 设置GPU，如果有多个就设置多个，如果有限制就进行限制 
   gpus = tf.config.experimental.list_physical_devices('GPU')
   if gpu_allow_growth:
     for gpu in gpus:
@@ -374,15 +377,18 @@ def train_eval(
               memory_limit=gpu_memory_limit)])
 
   # Get train and eval direction
+  # 将root_dir赋值为数据输出的路径
   root_dir = os.path.expanduser(root_dir)
   root_dir = os.path.join(root_dir, env_name, experiment_name)
 
   # Get summary writers
+  # 设置写数据的相关信息
   summary_writer = tf.summary.create_file_writer(
       root_dir, flush_millis=summaries_flush_secs * 1000)
   summary_writer.set_as_default()
 
   # Eval metrics
+  # 评估指标
   eval_metrics = [
       tf_metrics.AverageReturnMetric(
         name='AverageReturnEvalPolicy', buffer_size=num_eval_episodes),
@@ -390,10 +396,11 @@ def train_eval(
         name='AverageEpisodeLengthEvalPolicy',
         buffer_size=num_eval_episodes),
   ]
-
+  # 总共进行的步数
   global_step = tf.compat.v1.train.get_or_create_global_step()
 
   # Whether to record for summary
+  # 是否要进行记录，设置环境
   with tf.summary.record_if(
       lambda: tf.math.equal(global_step % summary_interval, 0)):
     # Create Carla environment
@@ -422,7 +429,7 @@ def train_eval(
         model_network_ctor = sequential_latent_network.SequentialLatentModelNonHierarchical
       else:
         raise NotImplementedError
-      model_net = model_network_ctor(input_names, input_names+mask_names)
+      model_net = model_network_ctor(input_names, input_names+mask_names,128)
 
       # Get the latent spec
       latent_size = model_net.latent_size
@@ -691,12 +698,12 @@ def train_eval(
     tf_agent.train = common.function(tf_agent.train)
 
     # Collect initial replay data.
+    # 收集初次失败或者说达到上限的数据
     if (env_steps.result() == 0 or replay_buffer.num_frames() == 0):
       logging.info(
           'Initializing replay buffer by collecting experience for %d steps'
           'with a random policy.', initial_collect_steps)
       initial_collect_driver.run()
-
     if agent_name == 'latent_sac':
       compute_summaries(
         eval_metrics,
@@ -720,20 +727,17 @@ def train_eval(
           summary_prefix='Eval',
       )
       metric_utils.log_metrics(eval_metrics)
-
     # Dataset generates trajectories with shape [Bxslx...]
     dataset = replay_buffer.as_dataset(
         num_parallel_calls=3,
         sample_batch_size=batch_size,
         num_steps=sequence_length + 1).prefetch(3)
     iterator = iter(dataset)
-
     # Get train step
     def train_step():
       experience, _ = next(iterator)
       return tf_agent.train(experience)
     train_step = common.function(train_step)
-
     if agent_name == 'latent_sac':
       def train_model_step():
         experience, _ = next(iterator)
@@ -747,8 +751,9 @@ def train_eval(
 
     # Start training
     for iteration in range(num_iterations):
+      logging.info('global step = %d',global_step.numpy())
       start_time = time.time()
-
+      
       if agent_name == 'latent_sac' and iteration < initial_model_train_steps:
         train_model_step()
       else:
