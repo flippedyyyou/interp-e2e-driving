@@ -66,19 +66,16 @@ If you find this useful for your research, please use the following.
 
 # Carla0.9.11
 
-**问题1:**[trafic_manger runtime_error](https://github.com/carla-simulator/carla/issues/3543)
+**问题1:** [trafic_manger runtime_error](https://github.com/carla-simulator/carla/issues/3543)
        
-**解决方法:**将tm_port设置为6000，0.9.11存在bug，使用默认的8000无法开启traffic_manger
+**解决方法:** 将tm_port设置为6000，0.9.11存在bug，使用默认的8000无法开启traffic_manger<br><br>
+**问题2:** [lidar图像与效果图相差甚远](https://github.com/cjy1992/gym-carla/issues/31)
 
-**问题2:**[lidar图像与效果图相差甚远](https://github.com/cjy1992/gym-carla/issues/31)
+**解决方法:** 0.9.11雷达的成员发生了改变，查阅Carla官方文档，对原代码雷达部分进行修改，且需要将雷达旋转90°<br><br>
+**问题3:** 除自车外其他车辆大部分静止
 
-**解决方法:**0.9.11雷达的成员发生了改变，查阅Carla官方文档，对原代码雷达部分进行修改，且需要将雷达旋转90°
-
-**问题3:**除自车外其他车辆大部分静止
-
-**解决方法:**0.9.11多车辆设置为autopilot模式必须开启traffic_manger,并且开启同步模式，否则大部分车辆会静止
-
-**问题4:**lidar图像中的红线
+**解决方法:** 0.9.11多车辆设置为autopilot模式必须开启traffic_manger,并且开启同步模式，否则大部分车辆会静止<br><br>
+**问题4:** lidar图像中的红线
 
 **尚未解决**
 
@@ -99,10 +96,10 @@ tensorboard --logdir=/home/[user_name]/interp-e2e-driving/logs/carla-v0/[experim
 # 目前已知重要参数
 
 ## train_eval.py/gym_carla
-obs_range:观察范围
-laser_bin:obs_range/laser_bin为render显示的图像分辨率，源代码默认为64
-input_names:输入通道名
-mask_names:mask通道名
+obs_range:观察范围<br>
+laser_bin:obs_range/laser_bin为render显示的图像分辨率，源代码默认为64<br>
+input_names:输入通道名<br>
+mask_names:mask通道名<br>
 
 ## sequential_latent_network.py
 obs_size:输入图像的清晰度
